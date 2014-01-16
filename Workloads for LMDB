@@ -1,0 +1,31 @@
+Workloads for LMDB:
+
+1. Plain create env and create database - No issues. 
+
+2. Put a single key-value pair - No issues. 
+
+3. Potential bug in default database creation scenario - Yes. See defdb workloads.
+
+4. Transactional update seems fine. They are doing good. 
+
+5. Complex bug in txn?? - (later finding)NO : 
+	Steps to repro: 1. Have a db with <k1,v1> and <k2,v2>. 2. Update the values of v1 to newv1 and v2 to newv2. 3. crash before the pointer is changed - so the new data is present. But the pointer is pointing to the old data. So it is consistent but the database is in a weird state now. Now make this state as the initial snapshot. Now add <k3,vnew3> and get k1,k2,k3. Expected: v1,v2,vnew3 but Got: None, None, vnew3. - No this is a not a bug. Some problem in repro steps.
+Actually got what was expected. 
+
+6. Nested transactions - Seems like inner txn commit is not flushing anything to disk - It is just doing some munmap. - Read documentation for this properly. Looks like it is proper. But child txn should flush data to disk because if childtxn commits, and then crashes before parenttxn commits then the next get would return the value set by parenttxn but it was logically updated and commited by childtxn. So it should have returned the value set by childtxn. See wiki for more details - LMDB implementation is correct - http://en.wikipedia.org/wiki/Nested_transaction.
+
+7. Safe new file flush is assumed by LMDB. There is no specific directory syncing when a new db or lock file is created. But ext4 actually satisfies this assumption. How to test this as all filesystems mentioned in alc paper are holding this property? So this can fail in 'strictly posix compliant file system'.
+
+
+Compaction - to test. or overwrite - increasing the txn count increases the number of writev system calls but still db level consistency is not compromised. 
+
+ 
+large value strings - No change in protocol for at least value strings as large as 16MB. Wrong that there was an assert. That assert was for the length of the key which is constrained to 512 bytes. This throws an error properly.  
+
+
+ASYNC:
+______
+
+metasync = False - Does not sync metadata of writes alone explicitly. But explicit and clear warning on corruption in documentation.
+writemap = True - Does msync on full mapped memory with MS_SYNC. So all data will be written to disk. - Does not use fdatasync calls or writev calls for pushing data to file.
+map_async = syncs the memory map in an async manner to the disk.  
