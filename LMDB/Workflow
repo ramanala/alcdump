@@ -1,0 +1,18 @@
+Workflow:
+
+0. Copy the workloads to working directory from IDE directory
+
+1. Run the strace (this is modified strace - modified by Thanu)
+command: strace -s 0 -ff -tt -o outputfilename.log  python workloadscript.py 
+
+2. Edit the config file for a particular workload. (For example : /home/ramnatthan/code/adsl-work/ALC/alc-strace/lmdb_workload/config_file) 
+
+3. Run simulate crashes script. It should reach 'Listener loop' step else there is a problem.
+
+4. Open GVIM -s /home/ramnatthan/code/adsl-work/ALC/alc-strace/crashes_editor.vim
+
+5. Do reordering and find bugs!
+
+
+
+

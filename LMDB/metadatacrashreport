@@ -1,0 +1,186 @@
+If no crash happened, this would be the state:
+
+Environment Info
+  Number of pages used: 8
+  Last transaction ID: 4
+Freelist Status
+  Tree depth: 1
+  Branch pages: 0
+  Leaf pages: 1
+  Overflow pages: 0
+  Entries: 2
+  Free pages: 4
+Status of Main DB
+  Tree depth: 1
+  Branch pages: 0
+  Leaf pages: 1
+  Overflow pages: 0
+  Entries: 4
+
+This is txn4.
+
+
+After getting to this state, a simple txn to insert a key is performed. Result header shows what happens.
+
+Conditions:
+***********
+1. Only txn_id gets into metapage and no other data:
+
+values obtained state: txn2
+
+Environment Info
+  Number of pages used: 5
+  Last transaction ID: 4
+Freelist Status
+  Tree depth: 1
+  Branch pages: 0
+  Leaf pages: 1
+  Overflow pages: 0
+  Entries: 1
+  Free pages: 1
+Status of Main DB
+  Tree depth: 1
+  Branch pages: 0
+  Leaf pages: 1
+  Overflow pages: 0
+  Entries: 4
+
+Result : No issues. 
+
+2. Free list data, txn_id and last_page goes in but not main db details:
+
+values obtained state: txn2 
+
+Environment Info
+  Number of pages used: 8
+  Last transaction ID: 4
+Freelist Status
+  Tree depth: 1
+  Branch pages: 0
+  Leaf pages: 1
+  Overflow pages: 0
+  Entries: 2
+  Free pages: 4
+Status of Main DB
+  Tree depth: 1
+  Branch pages: 0
+  Leaf pages: 1
+  Overflow pages: 0
+  Entries: 4
+
+Result : Error: lib/mdb.c:1921: mdb_page_touch: Assertion `mp->mp_p.p_pgno != pgno' failed. 
+
+3. Only the last_page field goes in nothing else
+
+values obtained state: txn3 
+
+Environment Info
+  Number of pages used: 5
+  Last transaction ID: 4
+Freelist Status
+  Tree depth: 1
+  Branch pages: 0
+  Leaf pages: 1
+  Overflow pages: 0
+  Entries: 1
+  Free pages: 1
+Status of Main DB
+  Tree depth: 1
+  Branch pages: 0
+  Leaf pages: 1
+  Overflow pages: 0
+  Entries: 4
+
+Result : No issues.
+
+4. only main db + 2 fields no free pointer
+
+values obtained state: txn4
+
+Environment Info
+  Number of pages used: 8
+  Last transaction ID: 4
+Freelist Status
+  Tree depth: 1
+  Branch pages: 0
+  Leaf pages: 1
+  Overflow pages: 0
+  Entries: 1
+  Free pages: 1
+Status of Main DB
+  Tree depth: 1
+  Branch pages: 0
+  Leaf pages: 1
+  Overflow pages: 0
+  Entries: 4
+
+Result : Error: lib/mdb.c:1921: mdb_page_touch: Assertion `mp->mp_p.p_pgno != pgno' failed.
+
+5. only free pointer goes to disk
+
+values obtained state : txn3
+
+Environment Info
+  Number of pages used: 7
+  Last transaction ID: 3
+Freelist Status
+  Tree depth: 1
+  Branch pages: 0
+  Leaf pages: 1
+  Overflow pages: 0
+  Entries: 2
+  Free pages: 3
+Status of Main DB
+  Tree depth: 1
+  Branch pages: 0
+  Leaf pages: 1
+  Overflow pages: 0
+  Entries: 4
+
+Result : No issues. 
+
+6. Everything gets in except database pointer - it is 48 bytes - but a crash happens such that second 24 bytes (which contains the root) is missed
+
+values obtained state: txn2
+
+Environment Info
+  Number of pages used: 8
+  Last transaction ID: 4
+Freelist Status
+  Tree depth: 1
+  Branch pages: 0
+  Leaf pages: 1
+  Overflow pages: 0
+  Entries: 2
+  Free pages: 4
+Status of Main DB
+  Tree depth: 1
+  Branch pages: 0
+  Leaf pages: 1
+  Overflow pages: 0
+  Entries: 4
+
+Result : Error: lib/mdb.c:1921: mdb_page_touch: Assertion `mp->mp_p.p_pgno != pgno' failed. 
+
+7. Everything gets in except database pointer - it is 48 bytes - but a crash happens such that first 24 bytes (which contains depth, br_pages, leaves count etc) is missed
+
+values obtained state: txn4
+
+Environment Info
+  Number of pages used: 8
+  Last transaction ID: 4
+Freelist Status
+  Tree depth: 1
+  Branch pages: 0
+  Leaf pages: 1
+  Overflow pages: 0
+  Entries: 2
+  Free pages: 4
+Status of Main DB
+  Tree depth: 1
+  Branch pages: 0
+  Leaf pages: 1
+  Overflow pages: 0
+  Entries: 4
+
+Result : No issues. 
