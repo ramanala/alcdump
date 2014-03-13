@@ -1,0 +1,55 @@
+Initial state : mydb.db and log1 files are present.
+Workload : Insert 1200 KV pairs
+Checker : Check if verify is required, try without recovery, try with recovery and check integrity of the data.
+
+BDB bugs:
+
+1. Prefix bug: The database file is appended when the log writes complete. We respect the 4K boundary writes expected by Berkeley DB. We split the appends into 'trunc();write(garbage);write(data)'. All prefixes that end at write(garbage) will have an issue - Berkeley DB cannot handle garbage properly. This is what will happen - Verify tool will report that the database file is corrupt and then we do a recovery. Recovery tool can take 2 ways - 1. It will report error that it was not able to recover the database. 2. It would say that the recovery went fine. 
+
+In case 1, we the database is left corrupt and automatic recovery (further) is not possible. 
+In case 2, we can get impartial data from the database - I wouldn't call this silent corruption, because, we can successfully retrieve some KV pairs but eventually when the read pattern touches some garbage, we get an exception (it does not return the garbage as such) - But this is still serious.
+
+2. Safe new file flush on the created logs: For our workload, Berkeley DB creates 6 log files in total. If we miss the dir_ent creation of these files (with an exception of the last log file - log6) and if the other subsequently created files contain only garbage, we cannot open the database anymore (normal or recovery). Another effect when missing the creation of log files when coupled with the previous bug, the recovery will only cleanly fail - i.e., it cannot have case 2 as mentioned earlier. log6 is special because it is the last log file in the workload. If the dir_ent for log6 is missed, recovery will take us to the initial state (i.e., rollback cleanly the current transaction)
+
+3. This is a weird case : When a particular write (some header info in the database) to the database file is omitted and everything else is completed, verify says that no recovery is needed. But when opening in normal mode, we get errors and on recovery mode open, things start to work. 
+
+4. This is also a verify tool bug: When another particular write to the database file is omitted then verify tool thinks that it needs recovery but in fact recovery is not needed. Normal open of the database itself works fine. 
+
+5. This is a documented bug: http://docs.oracle.com/cd/E17076_03/html/programmer_reference/transapp_journal.html - We were able to reproduce this in prefix testing. Basically if the append to a newly created log file has garbage data, then recovery can fail.   
+
+Applications that use Berkeley DB:
+
+389 Directory Server - An open-source LDAP server from the Fedora Project.
+ARC - Advanced Resource Connector open source grid middleware introduced by NorduGrid, use BerkeleyDB in several services.
+Asterisk PBX - A free/open source PBX.
+Bitcoin - A distributed peer-to-peer open source digital currency.
+Bogofilter – A free/open source spam filter that saves its wordlists using Berkeley DB.
+Carbonado – An open source relational database access layer.
+Citadel – A free/open source groupware platform that keeps all of its data stores, including the message base, in Berkeley DB.
+Cyrus IMAP Server – A free/open source IMAP and POP3 server, developed by Carnegie Mellon University
+Evolution - A free/open source mail client; contacts are stored in addressbook.db using Berkeley DB
+GlusterFS - Prior to v3.4, GlusterFS included a BDB storage translator.
+GRAMPS - Free genealogy software.
+Jabberd2 – An Extensible Messaging and Presence Protocol server
+KDevelop – An IDE for Linux and other Unix-like operating systems
+KLibido – A free/open source Newsgroup reader tailored for binary downloads
+Movable Type (until version 4.0) – A proprietary weblog publishing system developed by California-based Six Apart
+memcachedb - A persistence-enabled variant of memcached
+MySQL database system – Prior to v5.1, MySQL included a BDB data storage backend.
+OpenCOBOL - A free/open source COBOL implementation.
+OpenDS and OpenDJ - open source directory servers.
+OpenLDAP – A free/open source implementation of the Lightweight Directory Access Protocol (LDAP)
+Oracle NoSQL - A NoSQL distributed key-value database
+Papyrus Platform – The ISIS Papyrus Platform uses BerkeleyDB for its distributed object-relational transaction kernel for adaptive content and process management in enterprise applications
+PiSi – The package management system of Pardus
+Postfix – A fast, secure, easy-to-administer MTA for Linux/Unix systems
+Parallel Virtual File System (PVFS) – A parallel file system for HPC clusters.[12]
+Red Dwarf - A server framework originally developed by Sun, now open sourced, commonly used for game development.
+Redland – A RDF Application Framework can use BDB for persistent storage (triplestore)
+RPM – The RPM Package Manager uses Berkeley DB to retain its internal database of packages installed on a system
+Spamassassin – An anti-spam application
+squidGuard - squidGuard is a URL redirector software, which can be used for content control of websites users can access.[13]
+Subversion – A version control system designed specifically to replace CVS
+Sun Grid Engine – A free and open source distributed resource management system.
+Wialon - a GPS tracking and fleet management software with Web-interface[14]
+
